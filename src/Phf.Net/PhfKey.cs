@@ -1,8 +1,10 @@
+using System;
+
 namespace Phf.Net
 {
     public struct PhfKey
     {
-        public string Key;
+        public ReadOnlyMemory<Byte> Key;
         
         public uint G; /* result of g(k) % r */
         

@@ -14,7 +14,7 @@ namespace Phf.Net
 
         public uint DisplacementMax { get; set; } /* maximum displacement value in g */
 
-        public static PerfectHashFunction Create(string[] keys, PhfSettings settings)
+        public static PerfectHashFunction Create(ReadOnlyMemory<Byte>[] keys, PhfSettings settings)
         {
             var keysLengthNormalized = Math.Max((uint) keys.Length, 1); /* for computations that require n > 0 */
             var itemsPerBucketNormalized = Math.Max(settings.ItemsPerBucket, 1);
@@ -45,7 +45,7 @@ namespace Phf.Net
             var seed = settings.Seed;
             for (uint i = 0; i < (uint) keys.Length; i++)
             {
-                var idx = Phf_g_mod_r(keys[i], seed, numberOfBuckets, noDivision);
+                var idx = Phf_g_mod_r(keys[i].Span, seed, numberOfBuckets, noDivision);
 
                 bucketSlots[i].Key = keys[i];
                 bucketSlots[i].G = idx;
@@ -70,13 +70,13 @@ retry:
                 var delta = bucketSize[bucketSlots[i].G];
                 for (var j = i; j < i + delta; j++)
                 {
-                    f = Phf_f_mod_m(displacement, bucketSlots[j].Key, seed, outputArraySize, noDivision);
+                    f = Phf_f_mod_m(displacement, bucketSlots[j].Key.Span, seed, outputArraySize, noDivision);
                     if (PhfIsSet(bitmap, f) || PhfIsSet(bitmapWorking, f))
                     {
                         /* reset bitmapWorking[] */
                         for (j = i; j < i + delta; j++)
                         {
-                            f = Phf_f_mod_m(displacement, bucketSlots[j].Key, seed, outputArraySize, noDivision);
+                            f = Phf_f_mod_m(displacement, bucketSlots[j].Key.Span, seed, outputArraySize, noDivision);
                             PhfClearBit(bitmapWorking, f);
                         }
 
@@ -89,7 +89,7 @@ retry:
                 /* commit to bitmap[] */
                 for (var j = i; j < i + bucketSize[bucketSlots[i].G]; j++)
                 {
-                    f = Phf_f_mod_m(displacement, bucketSlots[j].Key, seed, outputArraySize, noDivision);
+                    f = Phf_f_mod_m(displacement, bucketSlots[j].Key.Span, seed, outputArraySize, noDivision);
                     PhfSetBit(bitmap, f);
                 }
 
@@ -106,12 +106,12 @@ retry:
             return phf;
         }
 
-        public uint Evaluate(string key)
+        public uint Evaluate(ReadOnlySpan<Byte> key)
         {
             return PhfHash(DisplacementMap, key, Seed, OutputArraySize, NoDivision);
         }
 
-        private static uint PhfHash(uint[] g, string k, uint seed, uint m, bool noDivision)
+        private static uint PhfHash(uint[] g, ReadOnlySpan<Byte> k, uint seed, uint m, bool noDivision)
         {
             if (noDivision)
             {
@@ -140,12 +140,12 @@ retry:
             return (set[i / 64] & (1UL << (int)(i % 64))) != 0;
         }
 
-        private static uint Phf_f_mod_m(uint d, string k, uint seed, uint m, bool noDivision)
+        private static uint Phf_f_mod_m(uint d, ReadOnlySpan<Byte> k, uint seed, uint m, bool noDivision)
         {
             return noDivision ? Phf_f(d, k, seed) & (m - 1) : Phf_f(d, k, seed) % m;
         }
 
-        private static uint Phf_f(uint d, string k, uint seed)
+        private static uint Phf_f(uint d, ReadOnlySpan<Byte> k, uint seed)
         {
             uint h1 = seed;
 
@@ -160,12 +160,12 @@ retry:
             return (x + (y - 1)) / y;
         }
 
-        private static uint Phf_g_mod_r(string k, uint seed, uint r, bool noDivision)
+        private static uint Phf_g_mod_r(ReadOnlySpan<Byte> k, uint seed, uint r, bool noDivision)
         {
             return noDivision ? Phf_g(k, seed) & (r - 1) : Phf_g(k, seed) % r;
         }
 
-        private static uint Phf_g(string k, uint seed)
+        private static uint Phf_g(ReadOnlySpan<Byte> k, uint seed)
         {
             uint h1 = seed;
 
@@ -185,7 +185,7 @@ retry:
             return h1;
         }
 
-        private static uint PhfRound32(string s, uint h1)
+        private static uint PhfRound32(ReadOnlySpan<Byte> s, uint h1)
         {
             uint k1;
             uint n = (uint)s.Length;
